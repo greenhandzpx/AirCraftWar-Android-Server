@@ -95,6 +95,7 @@ public class MyServer {
         @Override
         public void run() {
             System.out.println("wait client message " );
+            boolean startGame = false;
             try {
                 String content;
                 while ((content = in.readLine()) != null) {
@@ -173,10 +174,13 @@ public class MyServer {
                             }
                             ++users;
                             state = State.Ready;
+                            startGame = true;
                             ready();
                         default:
                     }
-
+                    if (startGame) {
+                        break;
+                    }
                 }
             } catch (IOException ex) {
                 ex.printStackTrace();
@@ -251,8 +255,8 @@ public class MyServer {
          */
         private void game() {
             System.out.println("start game!");
-            new Thread(this::receiveScore);
-            new Thread(this::forwardScore);
+            new Thread(this::receiveScore).start();
+            new Thread(this::forwardScore).start();
         }
 
         private void receiveScore() {
@@ -279,30 +283,33 @@ public class MyServer {
         }
 
         private void forwardScore() {
-            if (id == 0) {
-                synchronized (lockScore2) {
-                    while (!score2Changed) {
-                        try {
-                            lockScore2.wait();
-                        } catch (InterruptedException e) {
-                            e.printStackTrace();
+            while (true) {
+                if (id == 0) {
+                    synchronized (lockScore2) {
+                        while (!score2Changed) {
+                            try {
+                                lockScore2.wait();
+                            } catch (InterruptedException e) {
+                                e.printStackTrace();
+                            }
                         }
+                        sendMessage(score2);
+                        score2Changed = false;
                     }
-                    sendMessage(score2);
-                    score2Changed = false;
-                }
-            } else {
-                synchronized (lockScore1) {
-                    while (!score1Changed) {
-                        try {
-                            lockScore1.wait();
-                        } catch (InterruptedException e) {
-                            e.printStackTrace();
+                } else {
+                    synchronized (lockScore1) {
+                        while (!score1Changed) {
+                            try {
+                                lockScore1.wait();
+                            } catch (InterruptedException e) {
+                                e.printStackTrace();
+                            }
                         }
+                        sendMessage(score1);
+                        score1Changed = false;
                     }
-                    sendMessage(score1);
-                    score1Changed = false;
                 }
+
             }
         }
 
@@ -316,6 +323,6 @@ public class MyServer {
             }catch (IOException ex){
                 ex.printStackTrace();
             }
-        }
+
     }
 }
