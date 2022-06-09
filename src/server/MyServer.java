@@ -21,6 +21,8 @@ public class MyServer {
 //        }
     }
 
+    private String[] usernames = new String[2];
+
     private final int allowUsers = 2;
     /**
      * 当前在线的人数
@@ -35,11 +37,18 @@ public class MyServer {
     private final Object lockScore1 = "";
     private final Object lockScore2 = "";
 
+
+    private boolean user1Over = false;
+    private boolean user2Over = false;
+
     private String score1;
     private String score2;
 
     private boolean score1Changed = false;
     private boolean score2Changed = false;
+
+    private final Object overLock = "";
+    private int overCnt = 0;
 
     private final Object lockDifficulty = "";
 
@@ -130,13 +139,24 @@ public class MyServer {
                                     }
                                     String username = userAndPwd[0];
                                     String password = userAndPwd[1];
+
                                     System.out.println("username:"+username);
                                     System.out.println("password:"+password);
-                                    if (!Login.validate(username, password)) {
+
+                                    boolean alreadyLogin = (users == 1 && usernames[0].equals(username));
+                                    if (alreadyLogin) {
+                                        System.out.println("another user already logins");
+                                    }
+                                    if (alreadyLogin || !Login.validate(username, password)) {
                                         // 验证不通过
                                         sendMessage("Login Fail.");
                                     } else {
                                         sendMessage("Login Success.");
+                                        if (users == 0) {
+                                            usernames[0] = username;
+                                        } else {
+                                            usernames[1] = username;
+                                        }
                                         break;
                                     }
                                 }
@@ -212,6 +232,12 @@ public class MyServer {
         private void start() {
 
             sendMessage("start");
+            if (id == 0) {
+                sendMessage(usernames[1]);
+            } else {
+                sendMessage(usernames[0]);
+            }
+
             try {
                 // 等待两个用户发来他们的难度选择信息
                 String reply;
@@ -257,6 +283,7 @@ public class MyServer {
             System.out.println("start game!");
             new Thread(this::receiveScore).start();
             new Thread(this::forwardScore).start();
+            new Thread(this::sendOverFlag).start();
         }
 
         private void receiveScore() {
@@ -264,13 +291,37 @@ public class MyServer {
                 String reply;
                 while ((reply = in.readLine()) != null) {
                     if (id == 0) {
+                        if ("over".equals(reply)) {
+                            synchronized (lockScore2) {
+                                System.out.println("1 over");
+                                overCnt++;
+                                user1Over = true;
+                                score2Changed = true;
+                                lockScore2.notify();
+                            }
+                            return;
+                        }
                         synchronized (lockScore1) {
                             score1 = reply;
                             score1Changed = true;
                             lockScore1.notify();
                         }
+
                     } else {
+
+                        if ("over".equals(reply)) {
+                            synchronized (lockScore1) {
+                                System.out.println("2 over");
+                                overCnt++;
+                                user2Over = true;
+                                score1Changed = true;
+                                lockScore1.notify();
+                            }
+                            return;
+                        }
+
                         synchronized (lockScore2) {
+
                             score2 = reply;
                             score2Changed = true;
                             lockScore2.notify();
@@ -284,6 +335,14 @@ public class MyServer {
 
         private void forwardScore() {
             while (true) {
+
+                synchronized (overLock) {
+                    if (overCnt == allowUsers) {
+                        sendMessage("over");
+                        break;
+                    }
+                }
+
                 if (id == 0) {
                     synchronized (lockScore2) {
                         while (!score2Changed) {
@@ -292,6 +351,10 @@ public class MyServer {
                             } catch (InterruptedException e) {
                                 e.printStackTrace();
                             }
+                        }
+                        if (user1Over) {
+                            sendOverFlag();
+                            return;
                         }
                         sendMessage(score2);
                         score2Changed = false;
@@ -305,6 +368,10 @@ public class MyServer {
                                 e.printStackTrace();
                             }
                         }
+                        if (user2Over) {
+                            sendOverFlag();
+                            return;
+                        }
                         sendMessage(score1);
                         score1Changed = false;
                     }
@@ -313,16 +380,31 @@ public class MyServer {
             }
         }
 
+
+        public void sendOverFlag() {
+            synchronized (overLock) {
+                while (overCnt != allowUsers) {
+                    try {
+                        overLock.wait();
+                    } catch (InterruptedException e) {
+                        e.printStackTrace();
+                    }
+                }
+                overLock.notify();
+                sendMessage("over");
+            }
+        }
+
         public void sendMessage(String message) {
             PrintWriter pout;
-            try{
+            try {
                 System.out.println("message to client:" + message);
                 pout = new PrintWriter(new BufferedWriter(
-                        new OutputStreamWriter(socket.getOutputStream())),true);
+                        new OutputStreamWriter(socket.getOutputStream())), true);
                 pout.println(message);
-            }catch (IOException ex){
+            } catch (IOException ex) {
                 ex.printStackTrace();
             }
-
+        }
     }
 }

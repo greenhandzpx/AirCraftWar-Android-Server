@@ -43,7 +43,7 @@ public class FileUserInfoDAOImpl implements UserInfoDAO {
         } catch (IOException | ClassNotFoundException e) {
             e.printStackTrace();
         }
-        return null;
+        return new ArrayList<>();
     }
 
     public void writeToFile(List<UserInfo> userInfoList) throws IOException {

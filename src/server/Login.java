@@ -15,6 +15,13 @@ public class Login {
         FileUserInfoDAOImpl userInfoDAO = new FileUserInfoDAOImpl();
 
         List<UserInfo> userInfoList = userInfoDAO.getAllUserInfo();
+        if (userInfoList == null) {
+            return false;
+        }
+
+        for (UserInfo userInfo: userInfoList) {
+            System.out.println(userInfo.getName() + userInfo.getPassword());
+        }
 
         for (UserInfo userInfo: userInfoList) {
             if (userInfo.getName().equals(username) &&

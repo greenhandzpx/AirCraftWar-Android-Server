@@ -18,11 +18,12 @@ public class Register {
         FileUserInfoDAOImpl userInfoDAO = new FileUserInfoDAOImpl();
 
         List<UserInfo> userInfoList = userInfoDAO.getAllUserInfo();
-
-        for (UserInfo userInfo: userInfoList) {
-            if (userInfo.getName().equals(username)) {
-                // 用户名已存在
-                return false;
+        if (userInfoList != null) {
+            for (UserInfo userInfo: userInfoList) {
+                if (userInfo.getName().equals(username)) {
+                    // 用户名已存在
+                    return false;
+                }
             }
         }
         userInfoDAO.addUserInfo(new UserInfo(username, password));
